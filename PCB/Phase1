@@ -1,0 +1,211 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <time.h>
+
+// Constants for system configuration
+#define MAX_PAGES 32        // Max pages in virtual memory
+#define PAGE_SIZE 4096      // Size of each page
+#define FRAME_SIZE 4096     // Physical memory frame size
+#define MAX_PROCESSES 10    // Max processes
+#define MAX_IO_DEVICES 3    // Max I/O devices
+
+// Process Control Block
+typedef struct PCB {
+    int process_id;
+    char state[20];
+    int priority;
+    unsigned int pc; // Program counter
+    int registers[8];
+    int arrival_time;
+    int burst_time;
+    int remaining_time;
+    int wait_time;
+    int turnaround_time;
+    int page_table[MAX_PAGES]; // Page table for virtual memory
+    int io_request[MAX_IO_DEVICES]; // Simulated I/O requests
+    struct PCB *next;
+} PCB;
+
+// Ready Queue
+typedef struct ReadyQueue {
+    PCB *head;
+    PCB *tail;
+} ReadyQueue;
+
+// File System
+typedef struct File {
+    char name[20];
+    char data[1024]; // Max size of file data
+    struct File *next;
+} File;
+
+typedef struct Directory {
+    char name[20];
+    File *files;
+    struct Directory *next;
+} Directory;
+
+// Global Variables
+ReadyQueue ready_queue = {NULL, NULL};
+Directory root_directory = {"root", NULL, NULL};
+int memory[MAX_PAGES]; // Physical memory frames
+
+// Function to create a PCB
+PCB* create_pcb(int id, int priority, int arrival_time, int burst_time) {
+    PCB *new_pcb = (PCB *)malloc(sizeof(PCB));
+    if (!new_pcb) {
+        fprintf(stderr, "Memory allocation failed for PCB.\n");
+        exit(EXIT_FAILURE);
+    }
+
+    new_pcb->process_id = id;
+    strcpy(new_pcb->state, "Ready");
+    new_pcb->priority = priority;
+    new_pcb->pc = 0;
+    memset(new_pcb->registers, 0, sizeof(new_pcb->registers));
+    new_pcb->arrival_time = arrival_time;
+    new_pcb->burst_time = burst_time;
+    new_pcb->remaining_time = burst_time;
+    new_pcb->wait_time = 0;
+    new_pcb->turnaround_time = 0;
+    memset(new_pcb->page_table, -1, sizeof(new_pcb->page_table)); // Initialize page table
+    memset(new_pcb->io_request, 0, sizeof(new_pcb->io_request)); // Initialize I/O requests
+    new_pcb->next = NULL;
+
+    return new_pcb;
+}
+
+// Enqueue and Dequeue for Ready Queue
+void enqueue(ReadyQueue *queue, PCB *process) {
+    if (queue->tail == NULL) {
+        queue->head = queue->tail = process;
+    } else {
+        queue->tail->next = process;
+        queue->tail = process;
+    }
+    process->next = NULL;
+}
+
+PCB* dequeue(ReadyQueue *queue) {
+    if (queue->head == NULL) return NULL;
+    PCB *process = queue->head;
+    queue->head = queue->head->next;
+    if (queue->head == NULL) queue->tail = NULL;
+    return process;
+}
+
+// Virtual Memory Management: Page Replacement
+void allocate_page(PCB *pcb, int page_number) {
+    for (int i = 0; i < MAX_PAGES; i++) {
+        if (memory[i] == -1) { // Free frame found
+            memory[i] = pcb->process_id; // Assign frame to process
+            pcb->page_table[page_number] = i;
+            printf("Allocated page %d of process %d to frame %d\n", page_number, pcb->process_id, i);
+            return;
+        }
+    }
+    printf("Memory full. Page replacement needed for process %d.\n", pcb->process_id);
+}
+
+// Simulate Device I/O
+void handle_io(PCB *pcb) {
+    for (int i = 0; i < MAX_IO_DEVICES; i++) {
+        if (pcb->io_request[i]) {
+            printf("Process %d handling I/O request for device %d\n", pcb->process_id, i);
+            pcb->io_request[i] = 0; // Mark I/O request as completed
+        }
+    }
+}
+
+// File System Functions
+File* create_file(const char *name) {
+    File *new_file = (File *)malloc(sizeof(File));
+    if (!new_file) {
+        fprintf(stderr, "Memory allocation failed for file.\n");
+        exit(EXIT_FAILURE);
+    }
+    strcpy(new_file->name, name);
+    strcpy(new_file->data, ""); // Empty file
+    new_file->next = NULL;
+    return new_file;
+}
+
+void add_file(Directory *dir, File *file) {
+    file->next = dir->files;
+    dir->files = file;
+    printf("File %s created in directory %s.\n", file->name, dir->name);
+}
+
+File* find_file(Directory *dir, const char *name) {
+    File *current = dir->files;
+    while (current != NULL) {
+        if (strcmp(current->name, name) == 0) return current;
+        current = current->next;
+    }
+    return NULL;
+}
+
+void write_file(File *file, const char *data) {
+    strcpy(file->data, data);
+    printf("Data written to file %s: %s\n", file->name, file->data);
+}
+
+void read_file(File *file) {
+    printf("Data in file %s: %s\n", file->name, file->data);
+}
+
+// Scheduler
+void round_robin_scheduler(int quantum) {
+    int current_time = 0;
+
+    while (ready_queue.head != NULL) {
+        PCB *current_process = dequeue(&ready_queue);
+
+        if (current_process == NULL) {
+            current_time++;
+            continue;
+        }
+
+        printf("Time %d: Running process %d\n", current_time, current_process->process_id);
+
+        if (current_process->remaining_time <= quantum) {
+            current_time += current_process->remaining_time;
+            current_process->remaining_time = 0;
+            current_process->turnaround_time = current_time - current_process->arrival_time;
+            current_process->wait_time = current_process->turnaround_time - current_process->burst_time;
+            printf("Process %d completed. Turnaround Time: %d, Wait Time: %d\n",
+                   current_process->process_id, current_process->turnaround_time, current_process->wait_time);
+            free(current_process);
+        } else {
+            current_time += quantum;
+            current_process->remaining_time -= quantum;
+            handle_io(current_process); // Simulate I/O handling
+            enqueue(&ready_queue, current_process); // Add back to queue
+        }
+    }
+}
+
+// Main Function
+int main() {
+    srand(time(NULL));
+
+    // Initialize memory
+    memset(memory, -1, sizeof(memory));
+
+    // Create some processes
+    enqueue(&ready_queue, create_pcb(1, 3, 0, 10));
+    enqueue(&ready_queue, create_pcb(2, 1, 2, 15));
+    enqueue(&ready_queue, create_pcb(3, 2, 4, 20));
+
+    // File system operations
+    File *file1 = create_file("test.txt");
+    add_file(&root_directory, file1);
+    write_file(file1, "Hello, World!");
+    read_file(file1);
+
+    // Run scheduler
+    round_robin_scheduler(4);
+
+    return 0;
+}
