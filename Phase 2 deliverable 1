@@ -15,7 +15,6 @@ int memory[MAX_PAGES];
 typedef struct PCB {
     int process_id;
     char state[20];
-    int priority;
     int pc; // Program counter
     int registers[8];
     int arrival_time;
@@ -45,7 +44,7 @@ void initialize_memory() {
 }
 
 // PCB Creation
-PCB* create_pcb(int id, int priority, int arrival_time, int burst_time) {
+PCB* create_pcb(int id, int arrival_time, int burst_time) {
     PCB *pcb = (PCB *)malloc(sizeof(PCB));
     if (!pcb) {
         fprintf(stderr, "Memory allocation failed for PCB.\n");
@@ -53,7 +52,6 @@ PCB* create_pcb(int id, int priority, int arrival_time, int burst_time) {
     }
     pcb->process_id = id;
     strcpy(pcb->state, "Ready");
-    pcb->priority = priority;
     pcb->arrival_time = arrival_time;
     pcb->burst_time = burst_time;
     pcb->remaining_time = burst_time;
@@ -151,9 +149,9 @@ void demo_scheduler() {
     printf("=== OS Scheduling Demo ===\n");               // formatting
 
     // Create processes for demo
-    enqueue(&ready_queue, create_pcb(1, 1, 0, 10));       // arg ID, priority, arrival time, burst time
-    enqueue(&ready_queue, create_pcb(2, 2, 2, 15));
-    enqueue(&ready_queue, create_pcb(3, 3, 4, 5));        
+    enqueue(&ready_queue, create_pcb(1, 0, 10));       // arg ID, arrival time, burst time
+    enqueue(&ready_queue, create_pcb(2, 2, 15));
+    enqueue(&ready_queue, create_pcb(3, 4, 5));        
 
     printf("\nInitial Ready Queue:\n");
     display_ready_queue();                                // shows the processes in the queue
