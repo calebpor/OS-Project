@@ -24,7 +24,7 @@ int clock_time = 0; // Simulated time for FIFO tracking
 // Initialize physical memory
 void initialize_memory() {
     for (int i = 0; i < NUM_FRAMES; i++) {
-        physical_memory[i].process_id = -1; // -1 indicates free frame
+        physical_memory[i].process_id = -1; // free frame
         physical_memory[i].page_number = -1;
     }
 }
@@ -33,7 +33,7 @@ void initialize_memory() {
 int allocate_page(PCB *pcb, int page_number) {
     // Search for a free frame
     for (int i = 0; i < NUM_FRAMES; i++) {
-        if (physical_memory[i].process_id == -1) {
+        if (physical_memory[i].process_id == -1) {                   // onece a fee frame is found it assigns the page number to the frame and ends the loop.
             // Assign frame to the process
             physical_memory[i].process_id = pcb->process_id;
             physical_memory[i].page_number = page_number;
@@ -50,7 +50,7 @@ int allocate_page(PCB *pcb, int page_number) {
 
 // FIFO Page Replacement
 void fifo_page_replacement(PCB *pcb, int page_number) {
-    static int next_frame = 0; // Points to the next frame to be replaced
+    static int next_frame = 0;                                              // Points to the next frame to be replaced
 
     printf("Page replacement (FIFO): Replacing frame %d\n", next_frame);
 
@@ -59,7 +59,7 @@ void fifo_page_replacement(PCB *pcb, int page_number) {
     physical_memory[next_frame].page_number = page_number;
     pcb->page_table[page_number] = next_frame;
 
-    next_frame = (next_frame + 1) % NUM_FRAMES; // Move to the next frame
+    next_frame = (next_frame + 1) % NUM_FRAMES;                             // Move to the next frame
 }
 
 // Handle a memory request
@@ -83,7 +83,7 @@ void request_memory(PCB *pcb, int page_number) {
 
 // Demo Function
 void demo_memory_management() {
-    PCB pcb1 = {1, {-1}}; // Initialize page table with -1
+    PCB pcb1 = {1, {-1}};                            // Initialize page table with -1
     PCB pcb2 = {2, {-1}};
 
     // Simulate memory requests
