@@ -132,17 +132,17 @@ void demo_file_system_and_io() {
     printf("=== File System and I/O Management Demo ===\n\n");
 
     // File operations
-    create_file("file1.txt");
-    create_file("file2.txt");
-    write_file("file1.txt", "Hello, World!");
-    read_file("file1.txt");
-    list_files();
-    delete_file("file2.txt");
+    create_file("file1.txt");                                    // testing the ability handle file creation
+    create_file("file2.txt");                                    
+    write_file("file1.txt", "Hello, World!");                    // testing the ability write to a file in the system
+    read_file("file1.txt");                                      // testing the ability read from a file in the system
+    list_files();                                                // testing the list command
+    delete_file("file2.txt");                                    // testing the ability to delete a file
     list_files();
 
     // I/O operations
     printf("\nSimulating I/O Operations:\n");
-    perform_io_operation(0); // Printer
+    perform_io_operation(0); // Printer                          // I/0 Operation examples
     perform_io_operation(1); // Scanner
     perform_io_operation(2); // Disk
     perform_io_operation(3); // Invalid device
