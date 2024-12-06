@@ -1,0 +1,155 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+#define MAX_FILES 10
+#define MAX_FILENAME_LENGTH 20
+#define MAX_FILE_CONTENT 256
+#define MAX_IO_DEVICES 3
+
+// File structure
+typedef struct File {
+    char name[MAX_FILENAME_LENGTH];
+    char content[MAX_FILE_CONTENT];
+    int size;
+} File;
+
+// Directory structure
+typedef struct Directory {
+    File files[MAX_FILES];
+    int file_count;
+} Directory;
+
+// Simulated I/O device
+typedef struct IODevice {
+    char name[20];
+    int is_busy;
+} IODevice;
+
+// Global Variables
+Directory root_directory = { .file_count = 0 };
+IODevice io_devices[MAX_IO_DEVICES] = {
+    {"Printer", 0},
+    {"Scanner", 0},
+    {"Disk", 0}
+};
+
+// Function to create a file
+void create_file(const char *name) {
+    if (root_directory.file_count >= MAX_FILES) {
+        printf("Error: Directory is full. Cannot create file '%s'.\n", name);
+        return;
+    }
+
+    for (int i = 0; i < root_directory.file_count; i++) {
+        if (strcmp(root_directory.files[i].name, name) == 0) {
+            printf("Error: File '%s' already exists.\n", name);
+            return;
+        }
+    }
+
+    File *new_file = &root_directory.files[root_directory.file_count++];
+    strcpy(new_file->name, name);
+    new_file->size = 0;
+
+    printf("File '%s' created successfully.\n", name);
+}
+
+// Function to write to a file
+void write_file(const char *name, const char *content) {
+    for (int i = 0; i < root_directory.file_count; i++) {
+        if (strcmp(root_directory.files[i].name, name) == 0) {
+            File *file = &root_directory.files[i];
+            strncpy(file->content, content, MAX_FILE_CONTENT - 1);
+            file->size = strlen(content);
+            printf("Written to file '%s': %s\n", name, content);
+            return;
+        }
+    }
+
+    printf("Error: File '%s' not found.\n", name);
+}
+
+// Function to read from a file
+void read_file(const char *name) {
+    for (int i = 0; i < root_directory.file_count; i++) {
+        if (strcmp(root_directory.files[i].name, name) == 0) {
+            File *file = &root_directory.files[i];
+            printf("Reading file '%s': %s\n", name, file->content);
+            return;
+        }
+    }
+
+    printf("Error: File '%s' not found.\n", name);
+}
+
+// Function to delete a file
+void delete_file(const char *name) {
+    for (int i = 0; i < root_directory.file_count; i++) {
+        if (strcmp(root_directory.files[i].name, name) == 0) {
+            for (int j = i; j < root_directory.file_count - 1; j++) {
+                root_directory.files[j] = root_directory.files[j + 1];
+            }
+            root_directory.file_count--;
+            printf("File '%s' deleted successfully.\n", name);
+            return;
+        }
+    }
+
+    printf("Error: File '%s' not found.\n", name);
+}
+
+// Function to list files in the directory
+void list_files() {
+    printf("Files in directory:\n");
+    for (int i = 0; i < root_directory.file_count; i++) {
+        printf("  %s (%d bytes)\n", root_directory.files[i].name, root_directory.files[i].size);
+    }
+}
+
+// Simulate I/O device communication
+void perform_io_operation(int device_id) {
+    if (device_id < 0 || device_id >= MAX_IO_DEVICES) {
+        printf("Error: Invalid device ID.\n");
+        return;
+    }
+
+    IODevice *device = &io_devices[device_id];
+    if (device->is_busy) {
+        printf("Error: Device '%s' is busy.\n", device->name);
+        return;
+    }
+
+    device->is_busy = 1;
+    printf("Performing I/O operation on device '%s'...\n", device->name);
+    // Simulate an interrupt after operation
+    printf("I/O operation complete. Interrupt generated for device '%s'.\n", device->name);
+    device->is_busy = 0;
+}
+
+// Demo function
+void demo_file_system_and_io() {
+    printf("=== File System and I/O Management Demo ===\n\n");
+
+    // File operations
+    create_file("file1.txt");
+    create_file("file2.txt");
+    write_file("file1.txt", "Hello, World!");
+    read_file("file1.txt");
+    list_files();
+    delete_file("file2.txt");
+    list_files();
+
+    // I/O operations
+    printf("\nSimulating I/O Operations:\n");
+    perform_io_operation(0); // Printer
+    perform_io_operation(1); // Scanner
+    perform_io_operation(2); // Disk
+    perform_io_operation(3); // Invalid device
+}
+
+// Main function
+int main() {
+    demo_file_system_and_io();
+    return 0;
+}
