@@ -148,20 +148,20 @@ void round_robin_scheduler(int quantum) {
 
 // Demo Function
 void demo_scheduler() {
-    printf("=== OS Scheduling Demo ===\n");
+    printf("=== OS Scheduling Demo ===\n");               // formatting
 
-    // Create processes
-    enqueue(&ready_queue, create_pcb(1, 1, 0, 10));
+    // Create processes for demo
+    enqueue(&ready_queue, create_pcb(1, 1, 0, 10));       // arg ID, priority, arrival time, burst time
     enqueue(&ready_queue, create_pcb(2, 2, 2, 15));
-    enqueue(&ready_queue, create_pcb(3, 3, 4, 5));
+    enqueue(&ready_queue, create_pcb(3, 3, 4, 5));        
 
     printf("\nInitial Ready Queue:\n");
-    display_ready_queue();
+    display_ready_queue();                                // shows the processes in the queue
 
     printf("\n=== Starting Scheduler ===\n");
-    round_robin_scheduler(TIME_QUANTUM);
+    round_robin_scheduler(TIME_QUANTUM);                  // TIME_QUANTUM = 5
 
-    printf("\n=== Scheduler Complete ===\n");
+    printf("\n=== Scheduler Complete ===\n");             // formatting
 }
 
 // Main Function
