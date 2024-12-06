@@ -1,0 +1,172 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <time.h>
+
+#define MAX_PAGES 32
+#define MAX_PROCESSES 10
+#define MAX_IO_DEVICES 3
+#define TIME_QUANTUM 5
+
+// Global memory array
+int memory[MAX_PAGES];
+
+// Process Control Block
+typedef struct PCB {
+    int process_id;
+    char state[20];
+    int priority;
+    int pc; // Program counter
+    int registers[8];
+    int arrival_time;
+    int burst_time;
+    int remaining_time;
+    int wait_time;
+    int turnaround_time;
+    int page_table[MAX_PAGES]; // Page table for virtual memory
+    int io_request[MAX_IO_DEVICES]; // Simulated I/O requests
+    struct PCB *next;
+} PCB;
+
+// Ready Queue
+typedef struct ReadyQueue {
+    PCB *head;
+    PCB *tail;
+} ReadyQueue;
+
+// Ready Queue initialization
+ReadyQueue ready_queue = {NULL, NULL};
+
+// Initialize memory
+void initialize_memory() {
+    for (int i = 0; i < MAX_PAGES; i++) {
+        memory[i] = -1; // All frames are free
+    }
+}
+
+// PCB Creation
+PCB* create_pcb(int id, int priority, int arrival_time, int burst_time) {
+    PCB *pcb = (PCB *)malloc(sizeof(PCB));
+    if (!pcb) {
+        fprintf(stderr, "Memory allocation failed for PCB.\n");
+        exit(EXIT_FAILURE);
+    }
+    pcb->process_id = id;
+    strcpy(pcb->state, "Ready");
+    pcb->priority = priority;
+    pcb->arrival_time = arrival_time;
+    pcb->burst_time = burst_time;
+    pcb->remaining_time = burst_time;
+    pcb->wait_time = 0;
+    pcb->turnaround_time = 0;
+    memset(pcb->page_table, -1, sizeof(pcb->page_table));
+    memset(pcb->io_request, 0, sizeof(pcb->io_request));
+    pcb->next = NULL;
+    return pcb;
+}
+
+// Enqueue and Dequeue Functions
+void enqueue(ReadyQueue *queue, PCB *pcb) {
+    if (queue->tail == NULL) {
+        queue->head = queue->tail = pcb;
+    } else {
+        queue->tail->next = pcb;
+        queue->tail = pcb;
+    }
+    pcb->next = NULL;
+}
+
+PCB* dequeue(ReadyQueue *queue) {
+    if (queue->head == NULL) return NULL;
+    PCB *pcb = queue->head;
+    queue->head = queue->head->next;
+    if (queue->head == NULL) queue->tail = NULL;
+    return pcb;
+}
+
+// Display Ready Queue
+void display_ready_queue() {
+    PCB *current = ready_queue.head;
+    printf("Ready Queue: ");
+    while (current) {
+        printf("P%d ", current->process_id);
+        current = current->next;
+    }
+    printf("\n");
+}
+
+// Virtual Memory Management: Allocate Page
+void allocate_page(PCB *pcb, int page_number) {
+    for (int i = 0; i < MAX_PAGES; i++) {
+        if (memory[i] == -1) { // Free frame
+            memory[i] = pcb->process_id;
+            pcb->page_table[page_number] = i;
+            printf("Allocated page %d of process %d to frame %d\n", page_number, pcb->process_id, i);
+            return;
+        }
+    }
+    printf("Memory full. Page replacement needed for process %d.\n", pcb->process_id);
+}
+
+// Simulate I/O Handling
+void handle_io(PCB *pcb) {
+    if (pcb->io_request[0]) {
+        printf("Process %d performing I/O.\n", pcb->process_id);
+        sleep(1); // Simulate I/O delay
+        pcb->io_request[0] = 0; // Clear I/O request
+        printf("Process %d completed I/O.\n", pcb->process_id);
+    }
+}
+
+// Round Robin Scheduler
+void round_robin_scheduler(int quantum) {
+    int current_time = 0;
+
+    while (ready_queue.head != NULL) {
+        PCB *pcb = dequeue(&ready_queue);
+
+        if (!pcb) continue;
+
+        printf("Time %d: Running process %d\n", current_time, pcb->process_id);
+
+        if (pcb->remaining_time <= quantum) {
+            current_time += pcb->remaining_time;
+            pcb->remaining_time = 0;
+            pcb->turnaround_time = current_time - pcb->arrival_time;
+            pcb->wait_time = pcb->turnaround_time - pcb->burst_time;
+            printf("Process %d completed. Turnaround: %d, Wait: %d\n",
+                   pcb->process_id, pcb->turnaround_time, pcb->wait_time);
+            free(pcb);
+        } else {
+            current_time += quantum;
+            pcb->remaining_time -= quantum;
+            handle_io(pcb);
+            enqueue(&ready_queue, pcb);
+        }
+    }
+}
+
+// Demo Function
+void demo_scheduler() {
+    printf("=== OS Scheduling Demo ===\n");
+
+    // Create processes
+    enqueue(&ready_queue, create_pcb(1, 1, 0, 10));
+    enqueue(&ready_queue, create_pcb(2, 2, 2, 15));
+    enqueue(&ready_queue, create_pcb(3, 3, 4, 5));
+
+    printf("\nInitial Ready Queue:\n");
+    display_ready_queue();
+
+    printf("\n=== Starting Scheduler ===\n");
+    round_robin_scheduler(TIME_QUANTUM);
+
+    printf("\n=== Scheduler Complete ===\n");
+}
+
+// Main Function
+int main() {
+    initialize_memory();
+    demo_scheduler();
+    return 0;
+}
