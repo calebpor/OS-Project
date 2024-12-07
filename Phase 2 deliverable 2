@@ -33,7 +33,7 @@ void initialize_memory() {
 int allocate_page(PCB *pcb, int page_number) {
     // Search for a free frame
     for (int i = 0; i < NUM_FRAMES; i++) {
-        if (physical_memory[i].process_id == -1) {                   // onece a fee frame is found it assigns the page number to the frame and ends the loop.
+        if (physical_memory[i].process_id == -1) { // Free frame found
             // Assign frame to the process
             physical_memory[i].process_id = pcb->process_id;
             physical_memory[i].page_number = page_number;
@@ -50,16 +50,18 @@ int allocate_page(PCB *pcb, int page_number) {
 
 // FIFO Page Replacement
 void fifo_page_replacement(PCB *pcb, int page_number) {
-    static int next_frame = 0;                                              // Points to the next frame to be replaced
+    static int next_frame = 0; // Points to the next frame to be replaced
 
-    printf("Page replacement (FIFO): Replacing frame %d\n", next_frame);
+    printf("Page replacement (FIFO): Replacing frame %d (Process %d, Page %d)\n",
+           next_frame, physical_memory[next_frame].process_id,
+           physical_memory[next_frame].page_number);
 
     // Replace the frame
     physical_memory[next_frame].process_id = pcb->process_id;
     physical_memory[next_frame].page_number = page_number;
     pcb->page_table[page_number] = next_frame;
 
-    next_frame = (next_frame + 1) % NUM_FRAMES;                             // Move to the next frame
+    next_frame = (next_frame + 1) % NUM_FRAMES; // Move to the next frame
 }
 
 // Handle a memory request
