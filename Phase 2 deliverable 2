@@ -86,20 +86,14 @@ void request_memory(PCB *pcb, int page_number) {
 // Demo Function
 void demo_memory_management() {
     PCB pcb1 = {1, {-1}};                            // Initialize page table with -1
-    PCB pcb2 = {2, {-1}};
 
     // Simulate memory requests
     request_memory(&pcb1, 0);
     request_memory(&pcb1, 1);
     request_memory(&pcb1, 2);
     request_memory(&pcb1, 3);
-
-    request_memory(&pcb2, 0);
-    request_memory(&pcb2, 1);
-    request_memory(&pcb2, 2);
-
+    request_memory(&pcb1, 0);
     request_memory(&pcb1, 4);
-    request_memory(&pcb2, 3);
 
     printf("Demo complete.\n");
 }
