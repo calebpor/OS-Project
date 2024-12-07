@@ -9,7 +9,7 @@
 #define FRAME_SIZE 4096     // Physical memory frame size
 #define MAX_PROCESSES 10    // Max processes
 #define MAX_IO_DEVICES 3    // Max I/O devices
-#define MAX_FRAMES 10       // Max physical memory frames
+#define MAX_FRAMES 3       // Max physical memory frames
 
 // Process Control Block
 typedef struct PCB {
@@ -103,6 +103,11 @@ PCB* dequeue(ReadyQueue *queue) {
 
 // Virtual Memory Management: FIFO Page Replacement
 void allocate_page(PCB *pcb, int page_number) {
+    if (page_number < 0 || page_number >= MAX_PAGES) {
+        printf("Invalid page number %d for process %d.\n", page_number, pcb->process_id);
+        return;
+    }
+
     // Check if the page is already allocated
     if (pcb->page_table[page_number] != -1) {
         printf("Page %d of process %d is already allocated to frame %d.\n",
@@ -110,7 +115,7 @@ void allocate_page(PCB *pcb, int page_number) {
         return;
     }
 
-    // Check if there is a free frame
+    // Try to find a free frame
     for (int i = 0; i < MAX_FRAMES; i++) {
         if (memory[i].process_id == -1) { // Free frame found
             memory[i].process_id = pcb->process_id;
@@ -121,11 +126,12 @@ void allocate_page(PCB *pcb, int page_number) {
         }
     }
 
-    // If no free frame is found, replace the oldest frame
+    // Perform FIFO replacement if no free frame is available
     printf("Memory full. Replacing frame %d (process %d, page %d).\n",
            frame_pointer, memory[frame_pointer].process_id, memory[frame_pointer].page_number);
 
-    PCB *victim_pcb = NULL; // Find the PCB of the victim process
+    // Update the page table of the process whose page is being replaced
+    PCB *victim_pcb = NULL;
     for (PCB *temp = ready_queue.head; temp != NULL; temp = temp->next) {
         if (temp->process_id == memory[frame_pointer].process_id) {
             victim_pcb = temp;
@@ -134,15 +140,18 @@ void allocate_page(PCB *pcb, int page_number) {
     }
 
     if (victim_pcb) {
-        victim_pcb->page_table[memory[frame_pointer].page_number] = -1;
+        victim_pcb->page_table[memory[frame_pointer].page_number] = -1; // Invalidate victim's page table entry
     }
 
+    // Replace the frame with the new page
     memory[frame_pointer].process_id = pcb->process_id;
     memory[frame_pointer].page_number = page_number;
     pcb->page_table[page_number] = frame_pointer;
+
     printf("Allocated page %d of process %d to frame %d.\n", page_number, pcb->process_id, frame_pointer);
 
-    frame_pointer = (frame_pointer + 1) % MAX_FRAMES; // Move to the next frame
+    // Move the frame pointer to the next frame (FIFO)
+    frame_pointer = (frame_pointer + 1) % MAX_FRAMES;
 }
 
 // Simulate Device I/O
@@ -248,9 +257,11 @@ int main() {
     read_file(file1);
 
     // Allocate pages
-    allocate_page(ready_queue.head, 0);
+    allocate_page(ready_queue.head, 0); // Process 1
     allocate_page(ready_queue.head, 1);
     allocate_page(ready_queue.head, 2);
+    allocate_page(ready_queue.head, 0);
+    allocate_page(ready_queue.head, 3); // Triggers FIFO replacement
 
     // Run scheduler
     round_robin_scheduler(4);
