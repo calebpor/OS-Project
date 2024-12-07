@@ -111,9 +111,9 @@ void demo_memory_management() {
     request_memory(&pcb1, 1); // Page fault, allocate
     request_memory(&pcb1, 2); // Page fault, allocate
     request_memory(&pcb1, 3); // Page fault, allocate
-    request_memory(&pcb1, 0); // Replace the first page
+    request_memory(&pcb1, 0); // No page fault
     // Trigger page replacements
-    request_memory(&pcb1, 4); // Replace the second page
+    request_memory(&pcb1, 4); // Replace the first page
     
     printf("Demo complete.\n");
 }
