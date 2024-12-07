@@ -122,7 +122,7 @@ void demo_memory_management() {
 int main() {
     initialize_memory();
 
-    printf("=== FIFO Page Replacement Demo (Single Process) ===\n");
+    printf("=== FIFO Page Replacement Demo ===\n");
     demo_memory_management();
 
     return 0;
