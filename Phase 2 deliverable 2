@@ -1,10 +1,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <time.h>
 
 #define FRAME_SIZE 4096
-#define NUM_FRAMES 4 // Physical memory frames
+#define NUM_FRAMES 4 // Reduced number of physical memory frames
 #define MAX_PAGES 32 // Maximum virtual memory pages
 
 typedef struct Frame {
@@ -14,27 +13,32 @@ typedef struct Frame {
 
 typedef struct PCB {
     int process_id;
-    int page_table[MAX_PAGES]; // Maps virtual pages to frames
+    int page_table[MAX_PAGES]; // Maps virtual pages to frames; -1 if not loaded
 } PCB;
 
 // Global memory simulation
 Frame physical_memory[NUM_FRAMES];
 int clock_time = 0; // Simulated time for FIFO tracking
 
-// Initialize physical memory
+// Initialize physical memory and process page tables
 void initialize_memory() {
     for (int i = 0; i < NUM_FRAMES; i++) {
-        physical_memory[i].process_id = -1; // free frame
+        physical_memory[i].process_id = -1; // Free frame
         physical_memory[i].page_number = -1;
     }
 }
 
-// Allocate a page to a process
+// Initialize PCB page table
+void initialize_pcb(PCB *pcb) {
+    for (int i = 0; i < MAX_PAGES; i++) {
+        pcb->page_table[i] = -1; // -1 indicates the page is not in memory
+    }
+}
+
+// Allocate a page to a frame
 int allocate_page(PCB *pcb, int page_number) {
-    // Search for a free frame
     for (int i = 0; i < NUM_FRAMES; i++) {
         if (physical_memory[i].process_id == -1) { // Free frame found
-            // Assign frame to the process
             physical_memory[i].process_id = pcb->process_id;
             physical_memory[i].page_number = page_number;
             pcb->page_table[page_number] = i;
@@ -43,8 +47,7 @@ int allocate_page(PCB *pcb, int page_number) {
             return 1;
         }
     }
-
-    // Memory full, page replacement needed
+    // No free frames available
     return 0;
 }
 
@@ -56,16 +59,31 @@ void fifo_page_replacement(PCB *pcb, int page_number) {
            next_frame, physical_memory[next_frame].process_id,
            physical_memory[next_frame].page_number);
 
-    // Replace the frame
+    // Remove old mapping from the replaced process
+    int old_process_id = physical_memory[next_frame].process_id;
+    int old_page_number = physical_memory[next_frame].page_number;
+
+    if (old_process_id != -1) {
+        printf("Evicting page %d of process %d from frame %d\n",
+               old_page_number, old_process_id, next_frame);
+    }
+
+    // Update frame with new page
     physical_memory[next_frame].process_id = pcb->process_id;
     physical_memory[next_frame].page_number = page_number;
     pcb->page_table[page_number] = next_frame;
 
-    next_frame = (next_frame + 1) % NUM_FRAMES; // Move to the next frame
+    // Move to the next frame
+    next_frame = (next_frame + 1) % NUM_FRAMES;
 }
 
 // Handle a memory request
 void request_memory(PCB *pcb, int page_number) {
+    if (page_number < 0 || page_number >= MAX_PAGES) {
+        printf("Invalid page number %d for process %d\n", page_number, pcb->process_id);
+        return;
+    }
+
     // Check if the page is already in memory
     if (pcb->page_table[page_number] != -1) {
         int frame = pcb->page_table[page_number];
@@ -85,16 +103,18 @@ void request_memory(PCB *pcb, int page_number) {
 
 // Demo Function
 void demo_memory_management() {
-    PCB pcb1 = {1, {-1}};                            // Initialize page table with -1
+    PCB pcb1 = {1}; // Single process
+    initialize_pcb(&pcb1);
 
-    // Simulate memory requests
-    request_memory(&pcb1, 0);
-    request_memory(&pcb1, 1);
-    request_memory(&pcb1, 2);
-    request_memory(&pcb1, 3);
-    request_memory(&pcb1, 0);
-    request_memory(&pcb1, 4);
-
+    // Simulate memory requests for the single process
+    request_memory(&pcb1, 0); // Page fault, allocate
+    request_memory(&pcb1, 1); // Page fault, allocate
+    request_memory(&pcb1, 2); // Page fault, allocate
+    request_memory(&pcb1, 3); // Page fault, allocate
+    request_memory(&pcb1, 0); // Replace the first page
+    // Trigger page replacements
+    request_memory(&pcb1, 4); // Replace the second page
+    
     printf("Demo complete.\n");
 }
 
@@ -102,8 +122,9 @@ void demo_memory_management() {
 int main() {
     initialize_memory();
 
-    printf("=== FIFO Page Replacement Demo ===\n");
+    printf("=== FIFO Page Replacement Demo (Single Process) ===\n");
     demo_memory_management();
 
     return 0;
 }
+
