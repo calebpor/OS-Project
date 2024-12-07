@@ -9,6 +9,7 @@
 #define FRAME_SIZE 4096     // Physical memory frame size
 #define MAX_PROCESSES 10    // Max processes
 #define MAX_IO_DEVICES 3    // Max I/O devices
+#define MAX_FRAMES 10       // Max physical memory frames
 
 // Process Control Block
 typedef struct PCB {
@@ -45,10 +46,17 @@ typedef struct Directory {
     struct Directory *next;
 } Directory;
 
+// Frame structure for FIFO
+typedef struct Frame {
+    int process_id;
+    int page_number;
+} Frame;
+
 // Global Variables
 ReadyQueue ready_queue = {NULL, NULL};
 Directory root_directory = {"root", NULL, NULL};
-int memory[MAX_PAGES]; // Physical memory frames
+Frame memory[MAX_FRAMES];
+int frame_pointer = 0; // Points to the next frame for replacement
 
 // Function to create a PCB
 PCB* create_pcb(int id, int arrival_time, int burst_time) {
@@ -93,24 +101,55 @@ PCB* dequeue(ReadyQueue *queue) {
     return process;
 }
 
-// Virtual Memory Management: Page Replacement
+// Virtual Memory Management: FIFO Page Replacement
 void allocate_page(PCB *pcb, int page_number) {
-    for (int i = 0; i < MAX_PAGES; i++) {
-        if (memory[i] == -1) { // Free frame found
-            memory[i] = pcb->process_id; // Assign frame to process
+    // Check if the page is already allocated
+    if (pcb->page_table[page_number] != -1) {
+        printf("Page %d of process %d is already allocated to frame %d.\n",
+               page_number, pcb->process_id, pcb->page_table[page_number]);
+        return;
+    }
+
+    // Check if there is a free frame
+    for (int i = 0; i < MAX_FRAMES; i++) {
+        if (memory[i].process_id == -1) { // Free frame found
+            memory[i].process_id = pcb->process_id;
+            memory[i].page_number = page_number;
             pcb->page_table[page_number] = i;
-            printf("Allocated page %d of process %d to frame %d\n", page_number, pcb->process_id, i);
+            printf("Allocated page %d of process %d to frame %d.\n", page_number, pcb->process_id, i);
             return;
         }
     }
-    printf("Memory full. Page replacement needed for process %d.\n", pcb->process_id);
+
+    // If no free frame is found, replace the oldest frame
+    printf("Memory full. Replacing frame %d (process %d, page %d).\n",
+           frame_pointer, memory[frame_pointer].process_id, memory[frame_pointer].page_number);
+
+    PCB *victim_pcb = NULL; // Find the PCB of the victim process
+    for (PCB *temp = ready_queue.head; temp != NULL; temp = temp->next) {
+        if (temp->process_id == memory[frame_pointer].process_id) {
+            victim_pcb = temp;
+            break;
+        }
+    }
+
+    if (victim_pcb) {
+        victim_pcb->page_table[memory[frame_pointer].page_number] = -1;
+    }
+
+    memory[frame_pointer].process_id = pcb->process_id;
+    memory[frame_pointer].page_number = page_number;
+    pcb->page_table[page_number] = frame_pointer;
+    printf("Allocated page %d of process %d to frame %d.\n", page_number, pcb->process_id, frame_pointer);
+
+    frame_pointer = (frame_pointer + 1) % MAX_FRAMES; // Move to the next frame
 }
 
 // Simulate Device I/O
 void handle_io(PCB *pcb) {
     for (int i = 0; i < MAX_IO_DEVICES; i++) {
         if (pcb->io_request[i]) {
-            printf("Process %d handling I/O request for device %d\n", pcb->process_id, i);
+            printf("Process %d handling I/O request for device %d.\n", pcb->process_id, i);
             pcb->io_request[i] = 0; // Mark I/O request as completed
         }
     }
@@ -165,14 +204,14 @@ void round_robin_scheduler(int quantum) {
             continue;
         }
 
-        printf("Time %d: Running process %d\n", current_time, current_process->process_id);
+        printf("Time %d: Running process %d.\n", current_time, current_process->process_id);
 
         if (current_process->remaining_time <= quantum) {
             current_time += current_process->remaining_time;
             current_process->remaining_time = 0;
             current_process->turnaround_time = current_time - current_process->arrival_time;
             current_process->wait_time = current_process->turnaround_time - current_process->burst_time;
-            printf("Process %d completed. Turnaround Time: %d, Wait Time: %d\n",
+            printf("Process %d completed. Turnaround Time: %d, Wait Time: %d.\n",
                    current_process->process_id, current_process->turnaround_time, current_process->wait_time);
             free(current_process);
         } else {
@@ -189,10 +228,13 @@ int main() {
     srand(time(NULL));
 
     // Initialize memory
-    memset(memory, -1, sizeof(memory));
+    for (int i = 0; i < MAX_FRAMES; i++) {
+        memory[i].process_id = -1;
+        memory[i].page_number = -1;
+    }
 
     // Create some processes
-    enqueue(&ready_queue, create_pcb(1, 0, 10)); // ID, arival time, burst time
+    enqueue(&ready_queue, create_pcb(1, 0, 10)); // ID, arrival time, burst time
     enqueue(&ready_queue, create_pcb(2, 2, 15));
     enqueue(&ready_queue, create_pcb(3, 4, 20));
 
@@ -201,6 +243,11 @@ int main() {
     add_file(&root_directory, file1);
     write_file(file1, "Hello, World!");
     read_file(file1);
+
+    // Allocate pages
+    allocate_page(ready_queue.head, 0);
+    allocate_page(ready_queue.head, 1);
+    allocate_page(ready_queue.head, 2);
 
     // Run scheduler
     round_robin_scheduler(4);
