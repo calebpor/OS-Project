@@ -199,26 +199,29 @@ void round_robin_scheduler(int quantum) {
     while (ready_queue.head != NULL) {
         PCB *current_process = dequeue(&ready_queue);
 
-        if (current_process == NULL) {
-            current_time++;
-            continue;
-        }
+        // If the process has arrived and is ready to run
+        if (current_time >= current_process->arrival_time) {
+            printf("Time %d: Running process %d.\n", current_time, current_process->process_id);
 
-        printf("Time %d: Running process %d.\n", current_time, current_process->process_id);
-
-        if (current_process->remaining_time <= quantum) {
-            current_time += current_process->remaining_time;
-            current_process->remaining_time = 0;
-            current_process->turnaround_time = current_time - current_process->arrival_time;
-            current_process->wait_time = current_process->turnaround_time - current_process->burst_time;
-            printf("Process %d completed. Turnaround Time: %d, Wait Time: %d.\n",
-                   current_process->process_id, current_process->turnaround_time, current_process->wait_time);
-            free(current_process);
+            if (current_process->remaining_time > quantum) {
+                current_process->remaining_time -= quantum;
+                current_time += quantum;
+                handle_io(current_process); // Simulate I/O during the time slice
+                enqueue(&ready_queue, current_process); // Re-enqueue for the next round
+            } else {
+                // Process finishes in this time slice
+                current_time += current_process->remaining_time;
+                current_process->remaining_time = 0;
+                current_process->turnaround_time = current_time - current_process->arrival_time;
+                current_process->wait_time = current_process->turnaround_time - current_process->burst_time;
+                printf("Process %d completed. Turnaround: %d, Wait: %d\n",
+                       current_process->process_id, current_process->turnaround_time, current_process->wait_time);
+                free(current_process);
+            }
         } else {
-            current_time += quantum;
-            current_process->remaining_time -= quantum;
-            handle_io(current_process); // Simulate I/O handling
-            enqueue(&ready_queue, current_process); // Add back to queue
+            // If the process hasn't arrived yet, re-enqueue it and advance time
+            enqueue(&ready_queue, current_process);
+            current_time++;
         }
     }
 }
